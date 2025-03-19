@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { join } from 'node:path';
 import { loadCommands } from './commands';
 import { CommandHandler } from './types/CommandHandler';
+import { ContactWS } from './entities/contact.entity';
 
 @Injectable()
 export class WhatsappService implements OnModuleDestroy {
@@ -38,7 +39,7 @@ export class WhatsappService implements OnModuleDestroy {
       this.eventEmitter.emit('whatsapp.authenticated', true);
     });
 
-    this.client.on('ready', () => {
+    this.client.once('ready', () => {
       this.logger.log('Client is ready!');
       this.isReady = true;
       this.eventEmitter.emit('whatsapp.ready', true);
@@ -60,6 +61,37 @@ export class WhatsappService implements OnModuleDestroy {
     this.logger.log('Initializing WhatsApp Client...');
     await this.client.initialize();
     this.commands = await loadCommands();
+  }
+
+  async getContacts(): Promise<ContactWS[]> {
+    if (!this.isReady) {
+      this.logger.warn('Client is not ready. Waiting...');
+      await this.waitForReady();
+    }
+
+    const contacts = await this.client.getContacts();
+    const contactsJson: ContactWS[] = contacts.map((c) => {
+      return {
+        id: c.id.user,
+        name: c.name,
+        number: c.number,
+        isBusiness: c.isBusiness,
+        shortName: c.shortName,
+      } satisfies ContactWS;
+    });
+
+    return contactsJson;
+  }
+
+  async getGroups(): Promise<string[]> {
+    if (!this.isReady) {
+      this.logger.warn('Client is not ready. Waiting...');
+      await this.waitForReady();
+    }
+
+    const chats = await this.client.getChats();
+    const groups = chats.filter((chat) => chat.isGroup);
+    return groups.map((group) => group.name);
   }
 
   private async onMessage(msg: Message) {

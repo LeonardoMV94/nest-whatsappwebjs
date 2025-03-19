@@ -12,6 +12,8 @@ import { WhatsappService } from './whatsapp.service';
 import * as QRCode from 'qrcode';
 import { Response } from 'express';
 import { WhatsappStateService } from './whatsapp-state.service';
+import { ResponseCountDto } from './dto/response.dto';
+import { ContactWS } from './entities/contact.entity';
 
 @Controller('bot')
 export class WhatsappController {
@@ -49,6 +51,18 @@ export class WhatsappController {
     throw new UnauthorizedException('Invalid format');
   }
 
+  @Get('contacts')
+  async getContacts() {
+    const contacts = await this.whatsappService.getContacts();
+    return new ResponseCountDto<ContactWS>(contacts);
+  }
+
+  @Get('groups')
+  async getGroups() {
+    const groups = await this.whatsappService.getGroups();
+    return new ResponseCountDto<string>(groups);
+  }
+
   @Post('send-message')
   async sendMessage(@Body() body: { numberDes: string; message: string }) {
     // const isReady = this.whatsappStateService.getReady();
@@ -56,6 +70,10 @@ export class WhatsappController {
 
     // if (!isReady) throw new UnauthorizedException('WS is not ready');
 
-    return this.whatsappService.sendMessage(body.numberDes, body.message);
+    const isSend = await this.whatsappService.sendMessage(
+      body.numberDes,
+      body.message,
+    );
+    return { state: isSend };
   }
 }
